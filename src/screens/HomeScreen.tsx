@@ -9,6 +9,7 @@ import {
   FlatList,
   TouchableOpacity,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import {
   Cloud,
   Sun,
@@ -64,11 +65,11 @@ const HomeScreen: React.FC = () => {
     return 'Moderate Weather';
   };
 
-  const getWeatherCategoryColor = (temperature: number): string => {
-    if (temperature < 10) return '#4A90E2';
-    if (temperature > 30) return '#FF6B6B';
-    if (temperature >= 10 && temperature <= 25) return '#4ECDC4';
-    return '#95A5A6';
+  const getWeatherGradient = (temperature: number): string[] => {
+    if (temperature < 10) return ['#667eea', '#764ba2']; // Cold - Purple/Blue
+    if (temperature > 30) return ['#f093fb', '#f5576c']; // Hot - Pink/Red
+    if (temperature >= 10 && temperature <= 25) return ['#4facfe', '#00f2fe']; // Cool - Blue/Cyan
+    return ['#43e97b', '#38f9d7']; // Moderate - Green/Cyan
   };
 
   const loadData = useCallback(async () => {
@@ -77,7 +78,11 @@ const HomeScreen: React.FC = () => {
       if (!hasPermission) {
         Alert.alert(
           'Location Required',
-          'This app needs location access to provide weather information and relevant news.'
+          'This app needs location access to provide weather information and relevant news.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Try Again', onPress: loadData }
+          ]
         );
         return;
       }
@@ -90,9 +95,13 @@ const HomeScreen: React.FC = () => {
         lon: currentLocation.longitude,
       };
 
-      const weatherResult = await dispatch(getWeatherData(weatherLocation));
-      const newsResult = await dispatch(getNewsData(newsCategories));
+      // Load weather and news data in parallel
+      const [weatherResult, newsResult] = await Promise.all([
+        dispatch(getWeatherData(weatherLocation)),
+        dispatch(getNewsData(newsCategories))
+      ]);
       
+      // Filter news based on weather after both are loaded
       if (getWeatherData.fulfilled.match(weatherResult) && getNewsData.fulfilled.match(newsResult)) {
         const weatherPayload = weatherResult.payload as { current: { temperature: number } };
         if (weatherPayload?.current) {
@@ -117,13 +126,16 @@ const HomeScreen: React.FC = () => {
         if (error.message.includes('permission')) {
           errorMessage = 'Location permission is required to show weather information.';
         } else if (error.message.includes('Location unavailable')) {
-          errorMessage = 'Unable to get your location. Please check your GPS settings.';
+          errorMessage = 'Unable to get your location. Please check your GPS settings and try again.';
         } else if (error.message.includes('timeout')) {
           errorMessage = 'Location request timed out. Please try again.';
         }
       }
       
-      Alert.alert('Error', errorMessage);
+      Alert.alert('Error', errorMessage, [
+        { text: 'OK' },
+        { text: 'Retry', onPress: loadData }
+      ]);
     }
   }, [dispatch, newsCategories, articles.length]);
 
@@ -149,48 +161,71 @@ const HomeScreen: React.FC = () => {
     if (!weather) return null;
 
     const WeatherIcon = getWeatherIcon(weather.condition);
-    const categoryColor = getWeatherCategoryColor(weather.temperature);
+    const gradientColors = getWeatherGradient(weather.temperature);
+    const weatherCategory = getWeatherCategory(weather.temperature);
 
     return (
-      <View style={[styles.weatherHeader, { backgroundColor: categoryColor }]}>
+      <LinearGradient
+        colors={gradientColors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.weatherHeader}
+      >
         <View style={styles.weatherHeaderContent}>
+          {/* Location Row */}
           <View style={styles.locationContainer}>
-            <MapPin size={16} color="white" />
+            <MapPin size={18} color="rgba(255,255,255,0.9)" />
             <Text style={styles.locationText}>{weather.location}</Text>
+            <View style={styles.categoryBadge}>
+              <Text style={styles.categoryText}>{weatherCategory}</Text>
+            </View>
           </View>
           
+          {/* Main Weather Display */}
           <View style={styles.mainWeatherInfo}>
-            <WeatherIcon size={60} color="white" />
+            <View style={styles.iconContainer}>
+              <WeatherIcon size={80} color="white" strokeWidth={1.5} />
+            </View>
             <View style={styles.temperatureContainer}>
               <Text style={styles.mainTemperature}>
                 {temperatureUnit === 'celsius' 
-                  ? `${weather.temperature}°C` 
-                  : `${Math.round((weather.temperature * 9/5) + 32)}°F`}
+                  ? `${weather.temperature}°` 
+                  : `${Math.round((weather.temperature * 9/5) + 32)}°`}
               </Text>
-              <Text style={styles.weatherCondition}>{weather.description}</Text>
+              <Text style={styles.temperatureUnit}>
+                {temperatureUnit === 'celsius' ? 'C' : 'F'}
+              </Text>
             </View>
           </View>
 
-          <View style={styles.weatherDetails}>
-            <View style={styles.weatherDetailItem}>
-              <Thermometer size={16} color="rgba(255,255,255,0.8)" />
-              <Text style={styles.weatherDetailText}>
-                Feels {temperatureUnit === 'celsius' 
+          <Text style={styles.weatherCondition}>{weather.description}</Text>
+
+          {/* Weather Details Grid */}
+          <View style={styles.weatherDetailsGrid}>
+            <View style={styles.weatherDetailCard}>
+              <Thermometer size={18} color="rgba(255,255,255,0.8)" strokeWidth={1.5} />
+              <Text style={styles.weatherDetailLabel}>Feels like</Text>
+              <Text style={styles.weatherDetailValue}>
+                {temperatureUnit === 'celsius' 
                   ? `${weather.feelsLike}°C` 
                   : `${Math.round((weather.feelsLike * 9/5) + 32)}°F`}
               </Text>
             </View>
-            <View style={styles.weatherDetailItem}>
-              <Droplets size={16} color="rgba(255,255,255,0.8)" />
-              <Text style={styles.weatherDetailText}>{weather.humidity}%</Text>
+            
+            <View style={styles.weatherDetailCard}>
+              <Droplets size={18} color="rgba(255,255,255,0.8)" strokeWidth={1.5} />
+              <Text style={styles.weatherDetailLabel}>Humidity</Text>
+              <Text style={styles.weatherDetailValue}>{weather.humidity}%</Text>
             </View>
-            <View style={styles.weatherDetailItem}>
-              <Wind size={16} color="rgba(255,255,255,0.8)" />
-              <Text style={styles.weatherDetailText}>{weather.windSpeed} m/s</Text>
+            
+            <View style={styles.weatherDetailCard}>
+              <Wind size={18} color="rgba(255,255,255,0.8)" strokeWidth={1.5} />
+              <Text style={styles.weatherDetailLabel}>Wind</Text>
+              <Text style={styles.weatherDetailValue}>{weather.windSpeed} m/s</Text>
             </View>
           </View>
         </View>
-      </View>
+      </LinearGradient>
     );
   };
 
@@ -200,19 +235,20 @@ const HomeScreen: React.FC = () => {
     return (
       <View style={styles.forecastSection}>
         <View style={styles.sectionHeader}>
-          <Calendar size={20} color="#333" />
+          <Calendar size={22} color="#2C3E50" strokeWidth={2} />
           <Text style={styles.sectionTitle}>5-Day Forecast</Text>
         </View>
-        <FlatList
-          data={forecast}
-          renderItem={({ item }) => (
-            <ForecastItem forecast={item} temperatureUnit={temperatureUnit} />
-          )}
-          keyExtractor={(item) => item.date}
-          horizontal
+        <ScrollView 
+          horizontal 
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.forecastList}
-        />
+          contentContainerStyle={styles.forecastScrollContainer}
+        >
+          {forecast.map((item, index) => (
+            <View key={`${item.date}-${index}`} style={styles.forecastCard}>
+              <ForecastItem forecast={item} temperatureUnit={temperatureUnit} />
+            </View>
+          ))}
+        </ScrollView>
       </View>
     );
   };
@@ -220,30 +256,32 @@ const HomeScreen: React.FC = () => {
   const renderNewsSection = () => {
     const hasNews = filteredArticles.length > 0;
     const weatherCategory = weather ? getWeatherCategory(weather.temperature) : '';
-    const categoryColor = weather ? getWeatherCategoryColor(weather.temperature) : '#4A90E2';
 
     return (
       <View style={styles.newsSection}>
         <View style={styles.sectionHeader}>
-          <Newspaper size={20} color="#333" />
-          <Text style={styles.sectionTitle}>
-            Weather-Based News
+          <Newspaper size={22} color="#2C3E50" strokeWidth={2} />
+          <View style={styles.newsTitleContainer}>
+            <Text style={styles.sectionTitle}>Weather-Based News</Text>
             {weather && (
-              <Text style={[styles.weatherCategoryTag, { color: categoryColor }]}>
-                {` (${weatherCategory})`}
-              </Text>
+              <View style={styles.newsCategoryBadge}>
+                <Text style={styles.newsCategoryText}>{weatherCategory}</Text>
+              </View>
             )}
-          </Text>
+          </View>
         </View>
 
         {newsError && (
           <View style={styles.errorContainer}>
-            <AlertCircle size={24} color="#FF6B6B" />
+            <View style={styles.errorIconContainer}>
+              <AlertCircle size={32} color="#FF6B6B" strokeWidth={2} />
+            </View>
+            <Text style={styles.errorTitle}>Unable to load news</Text>
             <Text style={styles.errorText}>
-              Unable to load news. {newsError}
+              {newsError}
             </Text>
             <TouchableOpacity style={styles.retryButton} onPress={loadData}>
-              <RefreshCw size={16} color="#4A90E2" />
+              <RefreshCw size={16} color="#4A90E2" strokeWidth={2} />
               <Text style={styles.retryText}>Try Again</Text>
             </TouchableOpacity>
           </View>
@@ -263,16 +301,19 @@ const HomeScreen: React.FC = () => {
                 keyExtractor={(item) => item.id}
                 scrollEnabled={false}
                 showsVerticalScrollIndicator={false}
+                ItemSeparatorComponent={() => <View style={styles.newsItemSeparator} />}
               />
             ) : (
               <View style={styles.noNewsContainer}>
-                <Newspaper size={48} color="#CCC" />
+                <View style={styles.noNewsIconContainer}>
+                  <Newspaper size={64} color="#BDC3C7" strokeWidth={1} />
+                </View>
                 <Text style={styles.noNewsTitle}>No News Available</Text>
                 <Text style={styles.noNewsText}>
-                  No news articles are currently available. This might be due to API limitations or network issues.
+                  We couldn't find any relevant news articles based on the current weather conditions. Please try refreshing or check your internet connection.
                 </Text>
                 <TouchableOpacity style={styles.retryButton} onPress={loadData}>
-                  <RefreshCw size={16} color="#4A90E2" />
+                  <RefreshCw size={16} color="#4A90E2" strokeWidth={2} />
                   <Text style={styles.retryText}>Refresh</Text>
                 </TouchableOpacity>
               </View>
@@ -286,28 +327,38 @@ const HomeScreen: React.FC = () => {
   if (weatherLoading && !weather) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
-        <LoadingSpinner />
-        <Text style={styles.loadingText}>Getting your location and weather...</Text>
+        <LinearGradient
+          colors={['#667eea', '#764ba2']}
+          style={styles.loadingGradient}
+        >
+          <LoadingSpinner />
+          <Text style={styles.loadingText}>Getting your location and weather...</Text>
+        </LinearGradient>
       </SafeAreaView>
     );
   }
 
   if (weatherError && !weather) {
     return (
-      <SafeAreaView style={styles.errorContainer}>
-        <AlertCircle size={48} color="#FF6B6B" />
-        <Text style={styles.errorTitle}>Weather Unavailable</Text>
-        <Text style={styles.errorText}>{weatherError}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={loadData}>
-          <RefreshCw size={16} color="#4A90E2" />
-          <Text style={styles.retryText}>Try Again</Text>
-        </TouchableOpacity>
+      <SafeAreaView style={styles.errorScreenContainer}>
+        <LinearGradient
+          colors={['#f093fb', '#f5576c']}
+          style={styles.errorGradient}
+        >
+          <AlertCircle size={64} color="white" strokeWidth={2} />
+          <Text style={styles.errorTitle}>Weather Unavailable</Text>
+          <Text style={styles.errorText}>{weatherError}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadData}>
+            <RefreshCw size={16} color="#4A90E2" strokeWidth={2} />
+            <Text style={styles.retryText}>Try Again</Text>
+          </TouchableOpacity>
+        </LinearGradient>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -319,6 +370,7 @@ const HomeScreen: React.FC = () => {
             colors={['#4A90E2']}
           />
         }
+        showsVerticalScrollIndicator={false}
       >
         {renderWeatherHeader()}
         {renderForecast()}
@@ -326,7 +378,7 @@ const HomeScreen: React.FC = () => {
         
         {lastUpdated && (
           <View style={styles.lastUpdatedContainer}>
-            <RefreshCw size={12} color="#999" />
+            <RefreshCw size={14} color="#95A5A6" strokeWidth={2} />
             <Text style={styles.lastUpdatedText}>
               Last updated: {lastUpdated.toLocaleTimeString()}
             </Text>
@@ -346,86 +398,126 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 20,
+    paddingBottom: 30,
   },
   loadingContainer: {
     flex: 1,
+  },
+  loadingGradient: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
+    paddingHorizontal: 20,
   },
   loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#666',
+    marginTop: 20,
+    fontSize: 18,
+    color: 'white',
     textAlign: 'center',
+    fontWeight: '500',
   },
   weatherHeader: {
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    paddingBottom: 24,
-    marginBottom: 20,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    marginBottom: 20, // Reduced from 25 to fix spacing
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 15,
   },
   weatherHeaderContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingTop: 20,
+    paddingBottom: 30,
   },
   locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
+    flexWrap: 'wrap',
   },
   locationText: {
     color: 'white',
-    fontSize: 16,
-    fontWeight: '500',
-    marginLeft: 6,
+    fontSize: 18,
+    fontWeight: '600',
+    marginLeft: 8,
+    flex: 1,
+  },
+  categoryBadge: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 15,
+    marginLeft: 8,
+  },
+  categoryText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
   },
   mainWeatherInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 16,
+  },
+  iconContainer: {
+    padding: 10,
   },
   temperatureContainer: {
-    alignItems: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'flex-end',
   },
   mainTemperature: {
     color: 'white',
-    fontSize: 48,
-    fontWeight: 'bold',
+    fontSize: 72,
+    fontWeight: '300',
+    lineHeight: 72,
+  },
+  temperatureUnit: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 24,
+    fontWeight: '300',
+    marginTop: 8,
+    marginLeft: 4,
   },
   weatherCondition: {
     color: 'rgba(255,255,255,0.9)',
-    fontSize: 16,
+    fontSize: 18,
     textTransform: 'capitalize',
-    marginTop: -8,
+    textAlign: 'center',
+    marginBottom: 24,
+    fontWeight: '500',
   },
-  weatherDetails: {
+  weatherDetailsGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
+  },
+  weatherDetailCard: {
     backgroundColor: 'rgba(255,255,255,0.15)',
     borderRadius: 16,
-    paddingVertical: 12,
-  },
-  weatherDetailItem: {
-    flexDirection: 'row',
+    padding: 16,
     alignItems: 'center',
+    flex: 1,
+    marginHorizontal: 4,
   },
-  weatherDetailText: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 14,
+  weatherDetailLabel: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 12,
     fontWeight: '500',
-    marginLeft: 6,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  weatherDetailValue: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '700',
   },
   forecastSection: {
-    marginHorizontal: 16,
-    marginBottom: 24,
+    marginHorizontal: 20,
+    marginBottom: 25, // Reduced from 30
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -433,89 +525,132 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginLeft: 8,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#2C3E50',
+    marginLeft: 12,
   },
-  weatherCategoryTag: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  forecastList: {
+  forecastScrollContainer: {
     paddingHorizontal: 8,
   },
+  forecastCard: {
+    marginHorizontal: 6,
+  },
   newsSection: {
-    marginHorizontal: 16,
+    marginHorizontal: 20,
+  },
+  newsTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginLeft: 12,
+  },
+  newsCategoryBadge: {
+    backgroundColor: '#E8F4FD',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 12,
+  },
+  newsCategoryText: {
+    color: '#4A90E2',
+    fontSize: 11,
+    fontWeight: '600',
   },
   newsLoadingContainer: {
     alignItems: 'center',
-    paddingVertical: 40,
+    paddingVertical: 50,
   },
   errorContainer: {
     alignItems: 'center',
-    paddingVertical: 40,
-    paddingHorizontal: 20,
+    paddingVertical: 50,
+    paddingHorizontal: 30,
+  },
+  errorScreenContainer: {
+    flex: 1,
+  },
+  errorGradient: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 30,
+  },
+  errorIconContainer: {
+    marginBottom: 16,
   },
   errorTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#2C3E50',
     marginTop: 16,
-    marginBottom: 8,
+    marginBottom: 12,
+    textAlign: 'center',
   },
   errorText: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 16,
+    color: '#7F8C8D',
     textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 20,
+    lineHeight: 24,
+    marginBottom: 24,
   },
   retryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0F8FF',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
+    backgroundColor: '#EBF3FD',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    borderWidth: 1.5,
     borderColor: '#4A90E2',
+    shadowColor: '#4A90E2',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   retryText: {
     color: '#4A90E2',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
-    marginLeft: 6,
+    marginLeft: 8,
   },
   noNewsContainer: {
     alignItems: 'center',
-    paddingVertical: 40,
-    paddingHorizontal: 20,
+    paddingVertical: 50,
+    paddingHorizontal: 30,
+  },
+  noNewsIconContainer: {
+    marginBottom: 20,
   },
   noNewsTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginTop: 16,
-    marginBottom: 8,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#2C3E50',
+    marginBottom: 12,
+    textAlign: 'center',
   },
   noNewsText: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 16,
+    color: '#7F8C8D',
     textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 20,
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  newsItemSeparator: {
+    height: 12,
   },
   lastUpdatedContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 16,
+    paddingTop: 20,
+    paddingBottom: 10,
   },
   lastUpdatedText: {
-    fontSize: 12,
-    color: '#999',
-    marginLeft: 6,
+    fontSize: 13,
+    color: '#95A5A6',
+    marginLeft: 8,
+    fontWeight: '500',
   },
 });
 

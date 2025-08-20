@@ -92,42 +92,123 @@ export const getCurrentLocation = (): Promise<{ latitude: number; longitude: num
         return;
       }
       
+      // First try to get high accuracy location
       Geolocation.getCurrentPosition(
         position => {
-          resolve({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          });
+          const { latitude, longitude } = position.coords;
+          console.log('Location obtained:', { latitude, longitude });
+          
+          // Validate that we're getting reasonable coordinates
+          if (latitude === 0 && longitude === 0) {
+            console.warn('Invalid coordinates received, retrying...');
+            // Retry with different options
+            getCurrentLocationWithRetry(resolve, reject, 1);
+            return;
+          }
+          
+          resolve({ latitude, longitude });
         },
         error => {
-          console.error('Geolocation error:', error);
-          
-          switch (error.code) {
-            case 1:
-              reject(new Error('Location permission denied'));
-              break;
-            case 2: 
-              reject(new Error('Location unavailable. Please check your GPS settings.'));
-              break;
-            case 3: 
-              reject(new Error('Location request timed out. Please try again.'));
-              break;
-            default:
-              reject(new Error('Unable to get your location. Please try again.'));
-          }
+          console.error('Geolocation error (attempt 1):', error);
+          // Try again with different options
+          getCurrentLocationWithRetry(resolve, reject, 1);
         },
         {
           enableHighAccuracy: true,
-          timeout: 15000,
-          maximumAge: 10000,
+          timeout: 20000,
+          maximumAge: 5000, // Reduce cache age
           forceRequestLocation: true,
-          forceLocationManager: false,
+          forceLocationManager: Platform.OS === 'android',
           showLocationDialog: true,
           distanceFilter: 0,
         }
       );
     }).catch(reject);
   });
+};
+
+const getCurrentLocationWithRetry = (
+  resolve: (location: { latitude: number; longitude: number }) => void,
+  reject: (error: Error) => void,
+  attempt: number
+) => {
+  if (attempt > 3) {
+    reject(new Error('Unable to get your location after multiple attempts. Please check your GPS settings and try again.'));
+    return;
+  }
+
+  const options = attempt === 1 
+    ? {
+        // Second attempt: Lower accuracy but faster
+        enableHighAccuracy: false,
+        timeout: 15000,
+        maximumAge: 10000,
+        forceRequestLocation: true,
+        forceLocationManager: false,
+        showLocationDialog: true,
+        distanceFilter: 100,
+      }
+    : attempt === 2 
+    ? {
+        // Third attempt: Use network location
+        enableHighAccuracy: false,
+        timeout: 10000,
+        maximumAge: 30000,
+        forceRequestLocation: false,
+        showLocationDialog: true,
+        distanceFilter: 1000,
+      }
+    : {
+        // Final attempt: Most permissive settings
+        enableHighAccuracy: false,
+        timeout: 8000,
+        maximumAge: 60000,
+        forceRequestLocation: false,
+        showLocationDialog: false,
+        distanceFilter: 5000,
+      };
+
+  console.log(`Location attempt ${attempt + 1} with options:`, options);
+
+  Geolocation.getCurrentPosition(
+    position => {
+      const { latitude, longitude } = position.coords;
+      console.log(`Location obtained on attempt ${attempt + 1}:`, { latitude, longitude });
+      
+      // Validate coordinates
+      if (latitude === 0 && longitude === 0) {
+        console.warn(`Invalid coordinates on attempt ${attempt + 1}, retrying...`);
+        getCurrentLocationWithRetry(resolve, reject, attempt + 1);
+        return;
+      }
+      
+      resolve({ latitude, longitude });
+    },
+    error => {
+      console.error(`Geolocation error (attempt ${attempt + 1}):`, error);
+      
+      if (attempt < 3) {
+        setTimeout(() => {
+          getCurrentLocationWithRetry(resolve, reject, attempt + 1);
+        }, 2000); // Wait 2 seconds between attempts
+      } else {
+        switch (error.code) {
+          case 1:
+            reject(new Error('Location permission denied'));
+            break;
+          case 2: 
+            reject(new Error('Location unavailable. Please check your GPS settings and ensure you have a good signal.'));
+            break;
+          case 3: 
+            reject(new Error('Location request timed out. Please try again.'));
+            break;
+          default:
+            reject(new Error('Unable to get your location. Please ensure location services are enabled and try again.'));
+        }
+      }
+    },
+    options
+  );
 };
 
 export const watchLocation = (
@@ -147,10 +228,28 @@ export const watchLocation = (
     {
       enableHighAccuracy: true,
       distanceFilter: 100, 
-      interval: 300000,
-      fastestInterval: 60000,
+      interval: 300000, // 5 minutes
+      fastestInterval: 60000, // 1 minute
     }
   );
 
   return () => Geolocation.clearWatch(watchId);
+};
+
+// Debug function to get location info
+export const getLocationInfo = async (): Promise<void> => {
+  try {
+    const hasPermission = await checkLocationPermission();
+    console.log('Has location permission:', hasPermission);
+    
+    if (hasPermission) {
+      const location = await getCurrentLocation();
+      console.log('Current location:', location);
+      
+      // You can use reverse geocoding here if needed
+      // to get more location details
+    }
+  } catch (error) {
+    console.error('Location info error:', error);
+  }
 };
