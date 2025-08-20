@@ -1,8 +1,6 @@
 import axios from 'axios';
 import { NewsArticle } from '../types/news';
-
-const NEWS_API_KEY = '38de93d339014362979b72d3e9db65b4';
-const BASE_URL = 'https://newsapi.org/v2';
+import Config from 'react-native-config';
 
 export const fetchNewsData = async (categories: string[]): Promise<NewsArticle[]> => {
   try {
@@ -10,7 +8,7 @@ export const fetchNewsData = async (categories: string[]): Promise<NewsArticle[]
     
     try {
       const countryResponse = await axios.get(
-        `${BASE_URL}/top-headlines?country=us&apiKey=${NEWS_API_KEY}&pageSize=50`
+        `${Config.NEWS_BASE_URL}/top-headlines?country=us&apiKey=${Config.NEWS_API_KEY}&pageSize=50`
       );
       
       if (countryResponse.data.articles && countryResponse.data.articles.length > 0) {
@@ -34,7 +32,7 @@ export const fetchNewsData = async (categories: string[]): Promise<NewsArticle[]
     for (const category of categories) {
       try {
         const response = await axios.get(
-          `${BASE_URL}/top-headlines?category=${category}&apiKey=${NEWS_API_KEY}&pageSize=20`
+          `${Config.NEWS_BASE_URL}/top-headlines?category=${category}&apiKey=${Config.NEWS_API_KEY}&pageSize=20`
         );
         
         if (response.data.articles && response.data.articles.length > 0) {
@@ -61,7 +59,7 @@ export const fetchNewsData = async (categories: string[]): Promise<NewsArticle[]
     if (allArticles.length === 0) {
       try {
         const generalResponse = await axios.get(
-          `${BASE_URL}/everything?q=news OR breaking OR today&language=en&sortBy=publishedAt&apiKey=${NEWS_API_KEY}&pageSize=30`
+          `${Config.NEWS_BASE_URL}/everything?q=news OR breaking OR today&language=en&sortBy=publishedAt&apiKey=${Config.NEWS_API_KEY}&pageSize=30`
         );
         
         if (generalResponse.data.articles && generalResponse.data.articles.length > 0) {

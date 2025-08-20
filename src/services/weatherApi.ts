@@ -1,13 +1,11 @@
 import axios from 'axios';
 import { WeatherData, ForecastDay } from '../types/weather';
-
-const WEATHER_API_KEY = '9b7a33679e52fac4f043246926b77226';
-const BASE_URL = 'https://api.openweathermap.org/data/2.5';
+import Config from 'react-native-config';
 
 export const fetchWeatherData = async (lat: number, lon: number): Promise<WeatherData> => {
   try {
     const response = await axios.get(
-      `${BASE_URL}/weather?lat=${lat}&lon=${lon}&appid=${WEATHER_API_KEY}&units=metric`
+      `${Config.WEATHER_BASE_URL}/weather?lat=${lat}&lon=${lon}&appid=${Config.WEATHER_API_KEY}&units=metric`
     );
     
     console.log('weather response', response)
@@ -30,7 +28,7 @@ export const fetchWeatherData = async (lat: number, lon: number): Promise<Weathe
 export const fetchForecastData = async (lat: number, lon: number): Promise<ForecastDay[]> => {
   try {
     const response = await axios.get(
-      `${BASE_URL}/forecast?lat=${lat}&lon=${lon}&appid=${WEATHER_API_KEY}&units=metric`
+      `${Config.WEATHER_BASE_URL}/forecast?lat=${lat}&lon=${lon}&appid=${Config.WEATHER_API_KEY}&units=metric`
     );
     
     const forecastList = response.data.list;
