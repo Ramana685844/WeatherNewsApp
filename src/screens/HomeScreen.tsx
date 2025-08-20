@@ -327,13 +327,8 @@ const HomeScreen: React.FC = () => {
   if (weatherLoading && !weather) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
-        <LinearGradient
-          colors={['#667eea', '#764ba2']}
-          style={styles.loadingGradient}
-        >
           <LoadingSpinner />
           <Text style={styles.loadingText}>Getting your location and weather...</Text>
-        </LinearGradient>
       </SafeAreaView>
     );
   }
@@ -410,9 +405,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   loadingText: {
-    marginTop: 20,
     fontSize: 18,
-    color: 'white',
+    color: 'black',
     textAlign: 'center',
     fontWeight: '500',
   },
