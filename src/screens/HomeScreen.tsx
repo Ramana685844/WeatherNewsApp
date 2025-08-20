@@ -28,26 +28,22 @@ const HomeScreen: React.FC = () => {
 
   const loadData = useCallback(async () => {
     try {
-      // Request location permission first
       const hasPermission = await requestLocationPermission();
       if (!hasPermission) {
-        return; // Permission handling is done in the service
+        return;
       }
 
       const currentLocation = await getCurrentLocation();
       dispatch(setLocation(currentLocation));
 
-      // Convert to expected format for weather API
       const weatherLocation = {
         lat: currentLocation.latitude,
         lon: currentLocation.longitude,
       };
 
-      // Load weather and news data
       const weatherResult = await dispatch(getWeatherData(weatherLocation));
       await dispatch(getNewsData(newsCategories));
 
-      // Filter news based on weather after weather is loaded
       const weatherPayload = weatherResult.payload as { current?: { temperature: number } };
       if (weatherPayload?.current) {
         dispatch(filterNewsBasedOnWeather({
@@ -76,7 +72,6 @@ const HomeScreen: React.FC = () => {
     loadData();
   }, [loadData]);
 
-  // Filter news when weather data changes
   useEffect(() => {
     if (weather && filteredArticles.length > 0) {
       dispatch(filterNewsBasedOnWeather({

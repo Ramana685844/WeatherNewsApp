@@ -32,7 +32,6 @@ export const requestLocationPermission = async (): Promise<boolean> => {
   const permission = getLocationPermission();
   
   try {
-    // First check if permission is already granted
     const currentStatus = await check(permission);
     
     if (currentStatus === RESULTS.GRANTED) {
@@ -51,7 +50,6 @@ export const requestLocationPermission = async (): Promise<boolean> => {
       return false;
     }
     
-    // Request permission
     const result = await request(permission);
     
     switch (result) {
@@ -88,7 +86,6 @@ export const requestLocationPermission = async (): Promise<boolean> => {
 
 export const getCurrentLocation = (): Promise<{ latitude: number; longitude: number }> => {
   return new Promise((resolve, reject) => {
-    // First check if we have permission
     checkLocationPermission().then(hasPermission => {
       if (!hasPermission) {
         reject(new Error('Location permission not granted'));
@@ -105,15 +102,14 @@ export const getCurrentLocation = (): Promise<{ latitude: number; longitude: num
         error => {
           console.error('Geolocation error:', error);
           
-          // Handle specific geolocation errors
           switch (error.code) {
-            case 1: // PERMISSION_DENIED
+            case 1:
               reject(new Error('Location permission denied'));
               break;
-            case 2: // POSITION_UNAVAILABLE
+            case 2: 
               reject(new Error('Location unavailable. Please check your GPS settings.'));
               break;
-            case 3: // TIMEOUT
+            case 3: 
               reject(new Error('Location request timed out. Please try again.'));
               break;
             default:
@@ -150,12 +146,11 @@ export const watchLocation = (
     },
     {
       enableHighAccuracy: true,
-      distanceFilter: 100, // Update when user moves 100 meters
-      interval: 300000, // Update every 5 minutes
-      fastestInterval: 60000, // No more than once per minute
+      distanceFilter: 100, 
+      interval: 300000,
+      fastestInterval: 60000,
     }
   );
 
-  // Return cleanup function
   return () => Geolocation.clearWatch(watchId);
 };

@@ -11,7 +11,7 @@ export const fetchNewsData = async (categories: string[]): Promise<NewsArticle[]
       `${BASE_URL}/top-headlines?category=${categoryString}&apiKey=${NEWS_API_KEY}&pageSize=50`
     );
 
-
+    console.log('news response', response)
     
     return response.data.articles.map((article: any, index: number) => ({
       id: `${index}-${Date.now()}`,

@@ -41,13 +41,11 @@ export const filterNewsByWeather = (
     sentiment: categorizeArticleSentiment(article),
   }));
 
-  // Weather conditions mapping
-  const isCold = temperature < 10; // Below 10°C
-  const isHot = temperature > 30; // Above 30°C
-  const isCool = temperature >= 10 && temperature <= 25; // Between 10-25°C
+  const isCold = temperature < 10;
+  const isHot = temperature > 30;
+  const isCool = temperature >= 10 && temperature <= 25;
 
   if (isCold) {
-    // Cold weather: show depressing news
     const depressingNews = articlesWithSentiment.filter(article => 
       containsKeywords(`${article.title} ${article.description}`, DEPRESSING_KEYWORDS)
     );
@@ -55,7 +53,6 @@ export const filterNewsByWeather = (
   }
   
   if (isHot) {
-    // Hot weather: show fear-related news
     const fearNews = articlesWithSentiment.filter(article => 
       containsKeywords(`${article.title} ${article.description}`, FEAR_KEYWORDS)
     );
@@ -63,7 +60,6 @@ export const filterNewsByWeather = (
   }
   
   if (isCool) {
-    // Cool weather: show positive/winning news
     const positiveNews = articlesWithSentiment.filter(article => 
       article.sentiment === 'positive' || 
       containsKeywords(`${article.title} ${article.description}`, POSITIVE_KEYWORDS)
@@ -71,6 +67,5 @@ export const filterNewsByWeather = (
     return positiveNews.length > 0 ? positiveNews : articlesWithSentiment.slice(0, 10);
   }
 
-  // Default: return all articles
   return articlesWithSentiment.slice(0, 15);
 };
