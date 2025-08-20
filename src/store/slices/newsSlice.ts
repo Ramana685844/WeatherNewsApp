@@ -12,16 +12,31 @@ const initialState: NewsState = {
 
 export const getNewsData = createAsyncThunk(
   'news/getNewsData',
-  async (categories: string[]) => {
-    return await fetchNewsData(categories);
+  async (categories: string[], { rejectWithValue }) => {
+    try {
+      const articles = await fetchNewsData(categories);
+      return articles;
+    } catch (error: any) {
+      return rejectWithValue(error.message);
+    }
   }
 );
 
 export const filterNewsBasedOnWeather = createAsyncThunk(
   'news/filterNewsBasedOnWeather',
-  async ({ temperature }: { temperature: number }, { getState }) => {
+  async ({ temperature }: { temperature: number }, { getState, dispatch }) => {
     const state = getState() as any;
-    const articles = state.news.articles;
+    let articles = state.news.articles;
+    
+    if (articles.length === 0) {
+      const newsResult = await dispatch(getNewsData(['general', 'technology', 'health']));
+      if (getNewsData.fulfilled.match(newsResult)) {
+        articles = newsResult.payload;
+      } else {
+        return [];
+      }
+    }
+    
     return filterNewsByWeather(articles, temperature);
   }
 );
@@ -44,10 +59,11 @@ const newsSlice = createSlice({
         state.loading = false;
         state.articles = action.payload;
         state.filteredArticles = action.payload;
+        state.error = null;
       })
       .addCase(getNewsData.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message || 'Failed to fetch news data';
+        state.error = action.payload as string || 'Failed to fetch news data';
       })
       .addCase(filterNewsBasedOnWeather.fulfilled, (state, action) => {
         state.filteredArticles = action.payload;
